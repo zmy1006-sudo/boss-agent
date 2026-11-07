@@ -1,0 +1,259 @@
+# BOSS Agent 能力注册表 v1.0
+# 说明：路由按 capabilities 匹配，不按名字。use_when / avoid_when 用于抑制误用。
+# 新增专家只需追加条目，不改流程。
+
+version: 1
+updated: 2026-11-04
+
+defaults:
+  cost_tiers: [low, medium, high]
+  evidence_levels: [first_hand, secondary, inference]
+  risk_levels: [read_only, reversible_write, irreversible]
+
+# ---------------------------------------------------------------
+# 通用执行者：BOSS 自己的低成本替代，不单独开专家
+# ---------------------------------------------------------------
+- id: self
+  label: 主控自执行
+  capabilities:
+    domain: [general]
+    action: [read, write_local, reason, small_code]
+    tool: [shell, file, web]
+    evidence: [first_hand, inference]
+    context: [current]
+    risk: [read_only, reversible_write]
+  cost: low
+  strengths: [零协调成本, 上下文已就绪]
+  limits: [不能自我验证, 不擅长深水区专业判断]
+  use_when:
+    - 答案已在本地文件或当前上下文
+    - 单次工具调用即可完成
+    - 任务本身是"判断要不要做"
+  avoid_when:
+    - 需要独立验证（必须换上下文）
+    - 需要领域深水区知识
+
+# ---------------------------------------------------------------
+# 研究：外部事实与素材
+# ---------------------------------------------------------------
+- id: researcher
+  label: 研究专家
+  capabilities:
+    domain: [general, technical, market, policy]
+    action: [retrieve, synthesize, cross_check]
+    tool: [web_search, web_fetch, pdf]
+    evidence: [first_hand, secondary]
+    context: [long]
+    risk: [read_only]
+  cost: medium
+  strengths: [多源交叉, 时效性信息, 来源标注]
+  limits: [不擅长定量建模, 不判断商业价值]
+  use_when:
+    - 需要外部事实、竞品、文献、最新动态、法规原文
+  avoid_when:
+    - 事实已在本地文件
+    - 只需常识或已有结论
+
+# ---------------------------------------------------------------
+# 分析：数据、逻辑、定量
+# ---------------------------------------------------------------
+- id: analyst
+  label: 分析专家
+  capabilities:
+    domain: [data, business, quantitative]
+    action: [analyze, model, compare, attribute]
+    tool: [python, spreadsheet, sql, file]
+    evidence: [first_hand]
+    context: [long]
+    risk: [read_only, reversible_write]
+  cost: medium
+  strengths: [定量归因, 结构化对比, 假设检验]
+  limits: [输入数据质量决定上限, 不做价值判断]
+  use_when:
+    - 需要从数据中得出结论、归因、对比
+    - 需要把模糊判断变成可计算的东西
+
+# ---------------------------------------------------------------
+# 构建：代码与工程
+# ---------------------------------------------------------------
+- id: builder
+  label: 工程专家
+  capabilities:
+    domain: [software, automation, infra]
+    action: [build, refactor, debug, integrate]
+    tool: [shell, editor, test_runner, git]
+    evidence: [first_hand]
+    context: [long]
+    risk: [reversible_write, irreversible]
+  cost: medium
+  strengths: [可运行产物, 测试驱动, 边界处理]
+  limits: [不决定产品方向]
+  use_when:
+    - 需要交付可运行的代码、脚本、自动化
+  avoid_when:
+    - 只需改一行配置（self 即可）
+  notes: 涉及删除/部署时按 R3 走授权
+
+# ---------------------------------------------------------------
+# 写作：文档、报告、表达
+# ---------------------------------------------------------------
+- id: writer
+  label: 写作专家
+  capabilities:
+    domain: [writing, communication]
+    action: [draft, restructure, condense]
+    tool: [file, docx, markdown]
+    evidence: [secondary, inference]
+    context: [long]
+    risk: [reversible_write]
+  cost: low
+  strengths: [结构清晰, 面向读者, 长短可控]
+  limits: [不能替代事实核查]
+  use_when:
+    - 需要成文、改稿、压缩、换受众
+  avoid_when:
+    - 内容本身还没确定（先解决内容，再写作）
+
+# ---------------------------------------------------------------
+# 设计：视觉、体验、结构
+# ---------------------------------------------------------------
+- id: designer
+  label: 设计专家
+  capabilities:
+    domain: [visual, ux, information_design]
+    action: [design, layout, visualize]
+    tool: [image, svg, html, chart]
+    evidence: [inference]
+    context: [medium]
+    risk: [reversible_write]
+  cost: medium
+  strengths: [信息层级, 视觉表达, 一致性]
+  limits: [主观性强，需要明确约束]
+  use_when:
+    - 需要界面、图表、版式、视觉资产
+
+# ---------------------------------------------------------------
+# 操作：系统与外部动作（高风险）
+# ---------------------------------------------------------------
+- id: operator
+  label: 操作专家
+  capabilities:
+    domain: [system, ops, external]
+    action: [execute, deploy, publish, migrate]
+    tool: [shell, api, git, cloud]
+    evidence: [first_hand]
+    context: [medium]
+    risk: [irreversible]
+  cost: high
+  strengths: [精确执行, 回滚脚本, 变更记录]
+  limits: [所有动作默认 R3+]
+  use_when:
+    - 需要对系统或外部世界产生实际变更
+  avoid_when:
+    - 可以只读完成
+  notes: 必须附回滚方案；无授权不得执行
+
+# ---------------------------------------------------------------
+# 验证：独立检查（关键角色）
+# ---------------------------------------------------------------
+- id: verifier
+  label: 验证专家
+  capabilities:
+    domain: [general]
+    action: [verify, audit, falsify]
+    tool: [shell, file, web]
+    evidence: [first_hand]
+    context: [isolated]
+    risk: [read_only]
+  cost: medium
+  strengths: [盲验, 反证, 证据分级]
+  limits: [只报告不修复, 不继承执行上下文]
+  use_when:
+    - L2+ 任务的交付前检查（必用）
+  avoid_when:
+    - L0/L1 的存在性自检
+  rules:
+    - 输入只含：交付物 + 验收标准 + 证据清单
+    - 不得看到执行者推理与方案理由
+    - 发现问题只报告，不修改
+    - 结论必须三态之一，附证据等级
+
+# ---------------------------------------------------------------
+# 对抗：红队与压力测试
+# ---------------------------------------------------------------
+- id: critic
+  label: 红队专家
+  capabilities:
+    domain: [general]
+    action: [challenge, stress_test, pre_mortem]
+    tool: [reason, web]
+    evidence: [inference, secondary]
+    context: [isolated]
+    risk: [read_only]
+  cost: medium
+  strengths: [找漏洞, 反例, 最坏情况]
+  limits: [只破坏不建设]
+  use_when:
+    - L3+ 决策、高风险方案、对外承诺前
+  avoid_when:
+    - 低风险常规任务（会拖慢）
+
+# ---------------------------------------------------------------
+# 记忆：归档与知识整编
+# ---------------------------------------------------------------
+- id: archivist
+  label: 知识管家
+  capabilities:
+    domain: [knowledge_management]
+    action: [archive, index, consolidate, dedupe]
+    tool: [file, search]
+    evidence: [first_hand]
+    context: [long]
+    risk: [reversible_write]
+  cost: low
+  strengths: [结构化存储, 去重, 来源标注]
+  limits: [不判断知识对错]
+  use_when:
+    - 任务结束归档、知识库整理、复盘入库
+  rules:
+    - 每条知识必须有来源与日期
+    - 未经验证的结论标"待验证"，不得当作事实
+
+# ---------------------------------------------------------------
+# 路由规则（BOSS 使用，非硬编码）
+# ---------------------------------------------------------------
+routing:
+  steps:
+    - 分解任务为子任务，每个写所需能力向量
+    - 匹配 capabilities，计算覆盖率
+    - 过滤：权限不足、证据标准不达标
+    - 择优：同等覆盖率下选 cost 最低
+    - 兜底：无候选 → "self + 加强验证"，并记录能力缺口
+  hard_rules:
+    - 一个子任务一个 owner
+    - 能力不足时降低承诺，不假装能干
+    - 同一文件不得由两个并行契约写
+    - 能用技能解决的不开专家
+  team_patterns:
+    single: [1 专家]
+    pipeline: [A → B → C，上游产物落文件]
+    parallel_review: [同一问题 × 3 独立方案 → BOSS 裁决]
+    generate_verify: [执行者 + verifier]
+    red_blue: [主张者 + critic]
+    fan_out: [同一模板 × N，用 workflow]
+
+  cost_discipline:
+    - 编队规模 = f(任务价值, 不确定性)，不是 f(想显得专业)
+    - L1 任务最多 1 个专家
+    - L2 通常 1–3 个
+    - L3/L4 才允许 4+
+
+# ---------------------------------------------------------------
+# 能力缺口登记（用于进化环）
+# ---------------------------------------------------------------
+capability_gaps: []
+# 格式：
+# - date: 2026-11-04
+#   need: "需要本地 PDF 表格抽取能力"
+#   fallback_used: "researcher + 手工"
+#   impact: "多花 40 分钟"

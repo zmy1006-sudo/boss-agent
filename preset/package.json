@@ -1,0 +1,12 @@
+{
+  "name": "@local/dsh-boss-preset",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "BOSS Agent preset — the decision-making hub for the whole AI work system: intent reconstruction, forced three-option planning, capability routing, blind verification, reversibility ladder.",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}
