@@ -1,92 +1,120 @@
-# BOSS Agent —— 已安装的 DSH 预设
+# BOSS Agent
 
-这个目录是 BOSS Agent 的完整落地物。它不是一个文档，而是一个**能直接在 DeepSeek Harness 里选用的 Agent 预设**。
+一个装在 DeepSeek Harness 里的 **Agent 预设**：你只提目标，它负责判断问题、选路、派人、验收、交付。
 
-## 怎么用（30 秒）
+不是一个提示词文件，而是三层结构：预设（能力）+ 技能（方法）+ 角色卡（人）。
 
-1. 在 DSH Web UI 新建一个会话。
-2. 在预设选择器里选 **BOSS**（order 0，排在列表最前）。
-3. 直接给目标，例如「把这个仓库的构建时间降下来」，不要给步骤。
+## 它解决什么
 
-### 自检（第一次用建议跑一次）
+普通的 Agent 你问它做什么，它做；你说个目标，它反问你"你想怎么做"。
 
-在新会话里发：
+BOSS 的差别是四条硬约束：**先判断这是不是真问题**（目标卡）、**不许只做第一个想到的方案**（强制三案）、**交付前必须由别的上下文验一遍**（盲验）、**不可逆的动作先要授权**（可逆性阶梯）。这些是写进 persona 的硬规则，不是"建议"。
 
-> 用老板模式回答：我要把 boss-agent 目录整理成一个可发布的仓库，你打算怎么开始？
+## 安装
 
-合格反应（缺任意一条说明预设没生效或没跑对）：
+### 0. 前置
 
-- 先给任务分级（L2 或 L3），并说明为什么定这一级；
-- 写目标卡，把"可发布"翻译成可判定标准（如：README 存在、无绝对路径、能 `git init` 后干净提交）；
-- 给三个结构性不同的方案（最小可行 / 推荐 / 非显然），带决策矩阵分数；
-- 明确说"派工前会先开独立验证者"，且点名用 `subagent` 而不是 `subagent_fork`；
-- 不反问"你想先做什么"。
+- 已安装 DeepSeek Harness（桌面版或 `dsh` 均可），能打开 Web UI
+- Node.js / pnpm 可用（`plugin_manager` 依赖它）
+- 仓库放在本机任意目录，**路径可以带空格**（脚本已经按带空格的情况处理）
 
-如果它直接开始列目录、或者反问你想要什么风格，说明预设没挂上（见下面「排障」）。
+### 1. 安装预设
 
-## 文件地图
+在 DSH 里让 agent 执行：
 
-| 文件 | 作用 |
-|---|---|
-| `preset/cordis.patch.yml` | 预设本体。`preset-boss` 条目注册 agent preset，`persona.prefix` 是完整主控协议（十条硬约束 / L0–L4 分级 / S1–S9 主循环 / 盲验 / 授权红线 / 提问纪律 / 自检） |
-| `preset/package.json` | bundle 声明，`dsh.bundle.patch` 指向上面那行 |
-| `preset/skills/boss-playbook/SKILL.md` | 执行手册技能。L2+ 任务开始前加载，给可直接抄的模板（目标卡、三案打分表、承诺卡、派工单、盲验提示词、复盘表） |
-| `prompts/researcher.md` `analyst.md` `builder.md` `writer.md` | 专家角色卡。派工给 `subagent` 时，把对应角色卡全文粘进 prompt |
-| `prompts/verifier.md` | 独立验证者角色卡（盲验用） |
-| `prompts/red-team.md` | 红队角色卡（L3+ 方案预演用） |
-| `BOSS-Agent-设计文档.md` | 设计与论证（994 行，21 节 = 0–16 章 + 附录 A–D），改预设前先看它 |
-| `boss-agent-system-prompt.md` | 纯提示词版（不用预设时的替代品） |
-| `experts-registry.yaml` | 能力注册表与路由算法 |
+```
+plugin_manager  install_bundle  target: <仓库绝对路径>\preset
+```
+
+或者用命令行：
+
+```powershell
+cd $env:USERPROFILE\.dsh\profiles\<你的 profile 名>
+pnpm add "link:<仓库绝对路径>\preset"
+```
+
+装完重启 DSH。新建会话时，预设列表里会出现 **BOSS**，位置最靠前。
+
+### 2. 验证安装
+
+```powershell
+# 静态检查：路径、frontmatter、YAML 结构、行尾
+powershell -ExecutionPolicy Bypass -File scripts\verify.ps1
+
+# 目录被移动过、提示路径不对时，自动修正
+powershell -ExecutionPolicy Bypass -File scripts\verify.ps1 -Fix
+```
+
+`PASS` 只代表静态结构没问题，**不代表装得上**。装完必须跑下面这次会话自检。
+
+### 3. 换到 BOSS 跑一次
+
+新建会话，预设选 **BOSS**，发：
+
+> 用老板模式回答：我要把这个仓库整理成可发布的版本，你打算怎么开始？
+
+合格反应（缺任意一条说明预设没挂上或没生效）：
+
+1. 先给分级（L2 或 L3），并说明为什么定这一级；
+2. 写目标卡，把"可发布"翻译成可判定标准；
+3. 给三个结构性不同的方案，带决策矩阵分数；
+4. 明确说派工前会开独立验证者，且点名用 `subagent` 而不是 `subagent_fork`；
+5. 不反问"你想先做什么"。
+
+## 目录结构
+
+```
+README.md                      本文件
+BOSS-Agent-设计文档.md          完整设计与论证（21 节）
+boss-agent-system-prompt.md    纯提示词版，不用预设时粘贴它
+experts-registry.yaml          专家能力注册表 + 路由算法
+prompts/                       6 张专家角色卡（派工时拼进派工单）
+preset/                        可安装的 bundle
+  package.json
+  cordis.patch.yml             预设本体：persona 协议 + 工具集
+  skills/boss-playbook/SKILL.md 方法层：目标卡、三案表、派工单、盲验模板
+scripts/verify.ps1             发布前静态自检
+```
 
 ## 专家怎么叫起来
 
-专家不是常驻的，每次派工由 BOSS 用 `subagent` 现开一个干净上下文。派工单里必须包含角色卡全文，否则子代理不知道自己是谁。最省事的说法：
+专家不常驻。每次派工由 BOSS 用 `subagent` 现开一个干净上下文，派工单里必须包含角色卡全文，否则子代理不知道自己是谁。最省事的说法：
 
-> 以 builder 角色执行。角色卡见 `D:\deepseek Harness\boss-agent\prompts\builder.md`，先读它再动手。
+> 以 builder 角色执行。先读 `prompts/builder.md`，再动手。
+
+## 修改后怎么生效
+
+**必须"先卸再装"**——直接重装会返回 `already-installed`，链式安装不重读 YAML。已实测。
+
+```
+plugin_manager  remove_bundle   target: @local/dsh-boss-preset
+plugin_manager  install_bundle  target: <仓库绝对路径>\preset
+```
 
 ## 排障
 
-- **看不到 BOSS**：预设由 profile 层 bundle 提供。重启 DSH 应用后仍看不到，检查 `C:\Users\赵铭远\.dsh\profiles\desktop\package.json` 里是否有 `@local/dsh-boss-preset`。
-- **选了 BOSS 但行为像标准模式**：说明 preset 挂载失败被回落到默认。在设置里把会话切到 BOSS 重新新建一次；仍失败则看应用日志里的 `preset-boss` 相关报错。
-- **`boss-playbook` 技能加载不了**：确认 `D:\deepseek Harness\boss-agent\preset\skills\boss-playbook\SKILL.md` 存在且首行是 `---`。该目录通过 `skill-filesystem-boss` 单独挂载（`D:/deepseek Harness/boss-agent/preset/skills`）。
-- **路径必须存在**：`customSkillDirs` 写的是绝对路径（`preset/cordis.patch.yml` 第 107 行，`- 'D:/deepseek Harness/boss-agent/preset/skills'`；上一行 106 是 `customSkillDirs:`）。移动 `boss-agent` 目录后必须同步改这一行并重新安装，否则 `boss-playbook` 技能会静默消失。
+- **看不到 BOSS**：预设由 profile 层 bundle 提供。重启后仍看不到，检查 `%USERPROFILE%\.dsh\profiles\<profile>\package.json` 的 `dsh.profile.bundles` 里有没有 `@local/dsh-boss-preset`。
+- **选了 BOSS 但行为像标准模式**：说明预设挂载失败被回落到默认。重新新建一次会话；仍失败则看应用日志里 `preset-boss` 的报错。
+- **`boss-playbook` 技能加载不了**：确认 `preset/skills/boss-playbook/SKILL.md` 存在且首行是 `---`。
+- **技能路径是硬编码的**：`preset/cordis.patch.yml` 里的 `customSkillDirs` 是全仓库唯一一处必须写绝对路径的地方（框架的 `resolve()` 以进程 cwd 为基准，相对路径会静默错）。移动目录后跑一次 `verify.ps1 -Fix`，再按上面"先卸再装"重装，否则技能会无声消失。
 
 ## 卸载 / 回滚
 
-**改完 patch 必须"先卸再装"**：直接重装会返回 `already-installed`（已实测），链式安装不会重读 YAML。
-
-```powershell
-# 让 DSH 里的 agent 依次执行（推荐，两条命令都做）：
-#   plugin_manager remove_bundle   target: @local/dsh-boss-preset
-#   plugin_manager install_bundle  target: D:\deepseek Harness\boss-agent\preset
+```
+plugin_manager  remove_bundle  target: @local/dsh-boss-preset
 ```
 
-**纯命令行**（不经过 DSH）时，顺序不能错：
-
-```powershell
-# 1) 必须先删 profile 里的两项，否则 loader 启动时解析不到 bundle 会报错
-#    C:\Users\赵铭远\.dsh\profiles\desktop\package.json
-#      - dependencies["@local/dsh-boss-preset"]
-#      - dsh.profile.bundles 里的 "@local/dsh-boss-preset"
-# 2) 再移除链接
-cd C:\Users\赵铭远\.dsh\profiles\desktop
-pnpm remove @local/dsh-boss-preset
-# 3) 重启 DSH
-```
-
-**只停用、保留文件**：只做上面第 1、2 步里的删除 + pnpm remove，`boss-agent` 目录留着，下次重新安装即可。
-
-**彻底删除**：
-
-```powershell
-Remove-Item -Recurse -Force "D:\deepseek Harness\boss-agent\preset"
-```
+纯命令行时顺序不能错：**先**从 `%USERPROFILE%\.dsh\profiles\<profile>\package.json` 删掉 `dependencies` 和 `dsh.profile.bundles` 里的两项，**再** `pnpm remove @local/dsh-boss-preset`，否则 loader 启动时解析不到 bundle 会报错。
 
 回滚后行为回到标准模式，其他会话不受影响。
 
 ## 已知限制（诚实清单）
 
-- **不改模型**：预设只改提示词、技能和工具集，不换模型。当前走 profile 默认（`modlens-huagong / deepseek-flash`）。
-- **不持久化记忆**：L3 的「持续进化」目前靠 `boss-playbook` 里的复盘表和 `experts-registry.yaml` 手工沉淀，没有自动写入的长期记忆库。P3 才做。
-- **盲验成本**：每次 L2+ 交付会多一个 subagent 的开销。这是刻意的——报告里看不到"我验证过了"，就不算完成。
-- **预设不锁定工具**：`tool-plugin-manager`、`tool-plugin-market` 已禁用，但文件系统工具是完整的，BOSS 仍能改自己的预设文件。
+- **不改模型**：预设只改提示词、技能和工具集，不换模型，走 profile 的默认模型。
+- **不持久化记忆**：L3 的"持续进化"目前靠 `boss-playbook` 的复盘表和 `experts-registry.yaml` 手工沉淀，没有自动写入的长期记忆库。
+- **盲验有成本**：L2+ 每次交付多一个 subagent 的开销。这是刻意的——报告里看不到验证结论，就不算完成。
+- **不锁工具**：`tool-plugin-manager`、`tool-plugin-market` 已禁用，但文件系统工具完整，BOSS 仍能改自己的预设文件。
+
+## 许可
+
+MIT，见 [LICENSE](LICENSE)。
