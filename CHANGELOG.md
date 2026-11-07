@@ -21,7 +21,7 @@
 - `.gitattributes` 强制 LF；`.gitignore` 排除 node_modules 与备份目录。
 
 **已知脆弱点**
-- `preset/cordis.patch.yml` 的技能路径是全仓唯一硬编码绝对路径（框架以进程 cwd 解析相对路径）。移动目录后需 `verify.ps1 -Fix` 并重新安装。
+- `preset/cordis.patch.yml` 的技能路径是全仓唯一硬编码绝对路径（框架以进程 cwd 解析相对路径）。移动目录后需 `verify.ps1 -Fix`，重启即生效。
 
 **说明**
 - 首轮交付的 README 曾出现行号与章节数错误（107 误作 61、"18 节"应为 21 节），已修正；本章节只记录结果，不保留错误内容。
